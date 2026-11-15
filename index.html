@@ -203,6 +203,8 @@ svg.links.following path.on{opacity:1;stroke-width:2.6}
 .seg.hit .card{outline:2px solid hsl(var(--h) var(--S) var(--L));outline-offset:-1px}
 .end{text-align:center;font:500 .8rem var(--mono);color:var(--muted)}
 .seg.hid{display:none}
+.appear{display:inline-block;margin-left:10px;font:600 .72rem var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--bg);background:var(--ink);border-radius:4px;padding:2px 8px;vertical-align:1px}
+.day.app .dayhead{border-style:dashed}
 .dtog{display:none;align-items:center;gap:6px;font:600 .8rem var(--mono);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px;min-height:40px;cursor:pointer}
 .dtog .ar{display:inline-block;transition:transform .15s}
 .dtog[aria-expanded="true"] .ar{transform:rotate(90deg)}
@@ -246,7 +248,7 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem;border-top:1px solid 
     <div class="upd" aria-live="polite"><b>Updated Sundays at midnight</b><span id="lastupd">Last updated: …</span></div>
     <span class="eyebrow">Last Week on Destiny · source map</span>
     <h1>Destiny Week Map</h1>
-    <p class="lede">Every topic from a week of streams, top to bottom in the order it happened. Timecodes and stills open the Kick VOD at that moment. Topics that already made it into a YouTube upload also link to that spot in the video.</p>
+    <p class="lede">Every topic from a week of streams, plus Destiny's appearances on other shows, top to bottom in the order it happened. Timecodes and stills open the Kick VOD (or the YouTube video, for appearances) at that moment. Topics that already made it into a YouTube upload also link to that spot in the video.</p>
     <div class="weekpick"><button type="button" id="wprev" aria-label="Previous week">←</button><label for="week" class="eyebrow">Week</label><select id="week"></select><button type="button" id="wnext" aria-label="Next week">→</button><span id="wrange" class="mono"></span></div>
     <div class="stats" id="stats"></div>
     <div class="theme" role="group" aria-label="Theme"><button type="button" data-theme-set="auto">Auto</button><button type="button" data-theme-set="light">Light</button><button type="button" data-theme-set="dark">Dark</button></div>
@@ -294,6 +296,9 @@ document.querySelectorAll('[data-theme-set]').forEach(b=>b.onclick=()=>setTheme(
 const PALETTE = [330,212,28,168,262,46,356,196,300,8,88,236,140,180,60];
 const NEUTRAL = new Set(['oneoff','tangent']);
 const KICK = id => `https://kick.com/destiny/videos/${id}`;
+// streams link to Kick; separate appearances (Destiny on another show) link to their YouTube video
+const VURL = (p, id, t) => p === 'youtube' ? `https://www.youtube.com/watch?v=${id}${t!=null?`&t=${Math.round(t)}s`:''}` : `${KICK(id)}${t!=null?`?t=${Math.round(t)}`:''}`;
+const VNAME = p => p === 'youtube' ? 'YouTube' : 'Kick VOD';
 const fmt = s => {s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return `${h}:${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}`};
 const dur = s => {s=Math.round(s/60);return s>=60?`${Math.floor(s/60)}h ${String(s%60).padStart(2,'0')}m`:`${s}m`};
 const DAYNAME = iso => new Date(iso+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
@@ -313,10 +318,11 @@ function render(DATA){
   G = Object.fromEntries(DATA.groups.map((g,i)=>[g.key,{...g,rank:i+1}]));
   HUE = {}; let pi = 0; DATA.groups.forEach(g=>{ if(!NEUTRAL.has(g.key)) HUE[g.key] = g.hue ?? PALETTE[pi++ % PALETTE.length]; });
   const ALL = [];
-  DATA.days.forEach(d=>d.segs.forEach(s=>{s.date=d.date; s.day=d.day; s.vid=d.vod; s.id=`d${d.day}-s${s.i}`; ALL.push(s)}));
+  DATA.days.forEach(d=>d.segs.forEach(s=>{s.date=d.date; s.day=d.day; s.vid=d.vod; s.p=d.platform||'kick'; s.id=`d${d.day}-s${s.i}`; ALL.push(s)}));
   byG = {}; ALL.forEach(s=>(byG[s.g]=byG[s.g]||[]).push(s));
   const totVod = DATA.days.reduce((a,d)=>a+d.vodlen,0), totEd = DATA.days.every(d=>d.edited) ? DATA.days.reduce((a,d)=>a+d.edited,0) : 0;
-  $('stats').innerHTML = `<span><b>${DATA.days.length}</b> streams</span><span><b>${dur(totVod)}</b> of VOD</span>${totEd?`<span><b>${dur(totEd)}</b> without pauses</span>`:''}<span><b>${ALL.length}</b> topics</span>`;
+  const nApp = DATA.days.filter(d=>d.platform==='youtube').length, nStr = DATA.days.length - nApp;
+  $('stats').innerHTML = `<span><b>${nStr}</b> stream${nStr===1?'':'s'}</span>${nApp?`<span><b>${nApp}</b> other appearance${nApp===1?'':'s'}</span>`:''}<span><b>${dur(totVod)}</b> of VOD</span>${totEd?`<span><b>${dur(totEd)}</b> without pauses</span>`:''}<span><b>${ALL.length}</b> topics</span>`;
   $('lines').innerHTML = DATA.groups.filter(g=>byG[g.key]).map((g,i)=>{
     const days = DATA.days.map(d=>`<i class="${d.segs.some(s=>s.g===g.key)?'on'+ncls(g.key):''}" title="${DAYNAME(d.date)}"></i>`).join('');
     return `<li><button class="line" type="button" data-follow="${g.key}" style="${hv(g.key)}"><span class="rank">${String(i+1).padStart(2,'0')}</span><span class="sw${ncls(g.key)}"></span><span class="nm">${esc(g.name)}</span><span class="days" aria-hidden="true">${days}</span><span class="air">${dur(g.air)} · ${byG[g.key].length} topics</span></button></li>`;
@@ -326,8 +332,8 @@ function render(DATA){
     const segs = d.segs.map(s=>{
       const list = byG[s.g], k = list.indexOf(s), pv = list[k-1], nx = list[k+1], T = tier(s);
       const first = list[0], rep = !NEUTRAL.has(s.g) && k > 0;
-      const k2 = `${KICK(s.vid)}?t=${s.va}`;
-      const when = `<div class="when"><a href="${k2}" target="_blank" rel="noopener" title="Open the Kick VOD at ${fmt(s.va)}">${DAYNAME(d.date)} · ${fmt(s.va)}</a><span>${dur(s.eb-s.ea)}</span>${s.type==='Tangent'?'<span class="kind">Tangent</span>':''}</div>`;
+      const k2 = VURL(s.p, s.vid, s.va);
+      const when = `<div class="when"><a href="${k2}" target="_blank" rel="noopener" title="Open the ${VNAME(s.p)} at ${fmt(s.va)}">${DAYNAME(d.date)} · ${fmt(s.va)}</a><span>${dur(s.eb-s.ea)}</span>${s.type==='Tangent'?'<span class="kind">Tangent</span>':''}</div>`;
       const tag = `<div class="tags"><button class="tag" type="button" data-follow="${s.g}"><span class="sw${ncls(s.g)}"></span>${esc(G[s.g].name)}</button></div>`;
       if (rep) return `<article class="seg rep" id="${s.id}" data-g="${s.g}" data-first="${first.id}" style="${hv(s.g)}">
         <span class="stub"></span><span class="dot"></span>
@@ -337,20 +343,21 @@ function render(DATA){
       return `<article class="seg t${T}${ncls(s.g)}" id="${s.id}" data-g="${s.g}" style="${hv(s.g)}">
         <span class="stub"></span><span class="dot"></span>
         <div class="card">
-          <a class="thumb" href="${k2}" target="_blank" rel="noopener" aria-label="Watch on Kick from ${fmt(s.va)}"><img src="frames/${DATA.id}/${s.id}.jpg" alt="" loading="lazy" width="320" height="180"><span>${dur(s.eb-s.ea)}</span></a>
+          <a class="thumb" href="${k2}" target="_blank" rel="noopener" aria-label="Watch on ${s.p==='youtube'?'YouTube':'Kick'} from ${fmt(s.va)}"><img src="frames/${DATA.id}/${s.id}.jpg" alt="" loading="lazy" width="320" height="180"><span>${dur(s.eb-s.ea)}</span></a>
           <div class="body">
             ${when}${tag}
             <h3>${esc(s.topic)}</h3>
             <p>${esc(s.summary)}</p>
             ${chips(s)}
-            <div class="links"><a class="btn kick" href="${k2}" target="_blank" rel="noopener">Kick VOD · ${fmt(s.va)}</a>${s.yt.map(ytBtn).join('')}</div>
+            <div class="links"><a class="btn ${s.p==='youtube'?'yt':'kick'}" href="${k2}" target="_blank" rel="noopener">${VNAME(s.p)} · ${fmt(s.va)}</a>${s.yt.map(ytBtn).join('')}</div>
             ${later?`<span class="more">Comes up ${later} more time${later>1?'s':''} below</span>`:''}
           </div>
         </div></article>`;
     }).join('');
-    return `<section class="day" id="d${d.day}">
-      <div class="dayhead"><div class="date"><b>${WD(d.date,"long")}</b> · ${MD(d.date)}</div><h2>${esc(d.title)}</h2>
-        <div class="meta"><a class="btn kick" href="${KICK(d.vod)}" target="_blank" rel="noopener">Full VOD · ${fmt(d.vodlen)}</a><span>${d.segs.length} topics</span></div>
+    const app = d.platform === 'youtube';
+    return `<section class="day${app?' app':''}" id="d${d.day}">
+      <div class="dayhead"><div class="date"><b>${WD(d.date,"long")}</b> · ${MD(d.date)}${app?`<span class="appear">${esc(d.role||'Appearance')} · ${esc(d.channel)}</span>`:''}</div><h2>${esc(d.title)}</h2>
+        <div class="meta"><a class="btn ${app?'yt':'kick'}" href="${VURL(d.platform, d.vod)}" target="_blank" rel="noopener">${app?'Full video on YouTube':'Full VOD'} · ${fmt(d.vodlen)}</a><span>${d.segs.length} topic${d.segs.length===1?'':'s'}</span></div>
         <button type="button" class="dtog" data-dtog="${d.day}" aria-expanded="true" aria-controls="tl"><span class="ar" aria-hidden="true">▸</span> <span class="lab">Hide topics</span></button></div>
     </section>${segs}`;
   }).join('') + `<div class="end"><span>End of week</span></div>`;
@@ -500,7 +507,7 @@ function openSubj(k){
   const months = Object.keys(byM).sort().reverse();
   const mname = ym => new Date(ym+'-15T12:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'});
   const item = it => { const w = it.w, n = NEUTRAL.has(it.g), hue = n ? '' : `--h:${(cache[w]&&cache[w].groups.find(g=>g.key===it.g)||{}).hue ?? (HUE[it.g] ?? 212)}`;
-    return `<li class="it${n?' neutral':''}" style="${hue}"><div class="t"><a href="${KICK(it.vod)}?t=${it.va}" target="_blank" rel="noopener">${DAYNAME(it.date)} · ${fmt(it.va)}</a><span>${dur(it.dur)}</span><span>${esc(it.gn)}</span>${it.guest?'<span class="g">Speaking</span>':it.featured?'<span class="f">On screen</span>':''}</div>
+    return `<li class="it${n?' neutral':''}" style="${hue}"><div class="t"><a href="${VURL(it.p, it.vod, it.va)}" target="_blank" rel="noopener">${DAYNAME(it.date)} · ${fmt(it.va)}</a><span>${dur(it.dur)}</span><span>${esc(it.gn)}</span>${it.guest?'<span class="g">Speaking</span>':it.featured?'<span class="f">On screen</span>':''}</div>
       <div class="tp">${esc(it.topic)}</div><button type="button" class="go" data-goto="${it.w}|${it.id}">Show in timeline</button></li>`; };
   $('slist').innerHTML = months.map((m,i)=>{ const list = byM[m].slice().sort((a,b)=>b.date.localeCompare(a.date)||b.va-a.va);
     return `<details class="mo"${i===0?' open':''}><summary>${mname(m)}<span>${list.length} topic${list.length>1?'s':''} · ${dur(list.reduce((a,x)=>a+x.dur,0))}</span></summary><ol class="stl">${list.map(item).join('')}</ol></details>`; }).join('');
