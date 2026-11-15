@@ -87,6 +87,13 @@ header.top{display:grid;gap:14px;padding-bottom:22px;border-bottom:2px solid var
 .stabs{display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap}
 .stabs button{font:500 .78rem var(--mono);border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:4px;padding:3px 10px;cursor:pointer}
 .stabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.smore{display:none;align-items:center;gap:6px;margin-top:8px;font:600 .8rem var(--mono);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px;min-height:40px;cursor:pointer}
+.smore .ar{display:inline-block;transition:transform .15s}
+.smore[aria-expanded="true"] .ar{transform:rotate(90deg)}
+@media (max-width:820px){
+  #sindex.clamp{max-height:140px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 60%,transparent);mask-image:linear-gradient(#000 60%,transparent)}
+  .smore.need{display:inline-flex}
+}
 .sdrawer{position:fixed;inset:0;z-index:20;display:none}
 .sdrawer.open{display:block}
 .sdrawer .scrim{position:absolute;inset:0;background:rgba(0,0,0,.35)}
@@ -256,6 +263,7 @@ footer{margin-top:56px;color:var(--muted);font-size:.85rem;border-top:1px solid 
     <p class="hint">Tagged across every week. Pick one to see each time it came up, newest week first.</p>
     <div class="stabs" role="group" aria-label="Filter subjects"><button type="button" data-st="all" aria-pressed="true">All</button><button type="button" data-st="person" aria-pressed="false">People</button><button type="button" data-st="org" aria-pressed="false">Groups</button><button type="button" data-st="event" aria-pressed="false">Events</button></div>
     <div class="chips" id="sindex"><span class="hint">Loading…</span></div>
+    <button type="button" class="smore" id="smore" aria-controls="sindex" aria-expanded="false"><span class="ar" aria-hidden="true">▸</span> <span class="lab">Show all</span></button>
   </section>
 
   <nav class="bar" aria-label="Streams">
@@ -400,6 +408,25 @@ function drawLinks(){
 document.addEventListener('mouseover', e=>{ const s=e.target.closest('.seg'); document.querySelectorAll('svg.links path.hot').forEach(p=>p.classList.remove('hot')); if(!s) return;
   const sel = s.classList.contains('rep') ? `path[data-from="${s.id}"]` : `path[data-g="${s.dataset.g}"]`;
   document.querySelectorAll('svg.links '+sel).forEach(p=>p.classList.add('hot')); });
+// on narrow screens the subject index shows a few rows with a Show all button
+(function(){
+  const box = $('sindex'), btn = $('smore'); let open = false;
+  box.classList.add('clamp');
+  const sync = () => {
+    const n = box.querySelectorAll('.chip').length;
+    box.classList.toggle('clamp', !open);
+    btn.setAttribute('aria-expanded', open);
+    btn.querySelector('.lab').textContent = open ? 'Show fewer' : `Show all ${n}`;
+    // only offer the button when the list is actually cut off
+    const was = box.classList.contains('clamp'); box.classList.add('clamp');
+    const cut = box.scrollHeight > box.clientHeight + 4; if (!was) box.classList.remove('clamp');
+    btn.classList.toggle('need', cut);
+  };
+  btn.addEventListener('click', () => { open = !open; sync(); if (!open) box.scrollIntoView({block:'nearest'}); });
+  new MutationObserver(sync).observe(box, {childList:true});
+  addEventListener('resize', () => { clearTimeout(sync.t); sync.t = setTimeout(sync, 100); });
+})();
+
 // on narrow screens each day folds up like the tag drawer's months: first day open, the rest collapsed
 let OPEN = new Set();
 const narrow = () => innerWidth <= 820;
