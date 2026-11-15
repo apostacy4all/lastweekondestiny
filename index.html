@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A week-by-week map of Destiny's streams: every topic with timestamps, stills and the people involved.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%226%22 fill=%22%231f6f4a%22/%3E%3C/svg%3E">
 <meta charset="utf-8">
 <title>Destiny Week Map</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -189,6 +195,11 @@ svg.links.following path.on{opacity:1;stroke-width:2.6}
 .seg.dim .thumb img{filter:grayscale(1)}
 .seg.hit .card{outline:2px solid hsl(var(--h) var(--S) var(--L));outline-offset:-1px}
 .end{text-align:center;font:500 .8rem var(--mono);color:var(--muted)}
+.seg.hid{display:none}
+.dtog{display:none;align-items:center;gap:6px;font:600 .8rem var(--mono);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px;min-height:40px;cursor:pointer}
+.dtog .ar{display:inline-block;transition:transform .15s}
+.dtog[aria-expanded="true"] .ar{transform:rotate(90deg)}
+@media (max-width:820px){.dtog{display:inline-flex;justify-self:start}.day .dayhead{display:grid;width:100%;max-width:none}}
 .end span{display:inline-block;background:var(--bg);padding:6px 12px;border:2px solid var(--ink);border-radius:999px}
 /* one-sided when narrow */
 @media (max-width:820px){
@@ -220,6 +231,9 @@ svg.links.following path.on{opacity:1;stroke-width:2.6}
 footer{margin-top:56px;color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);padding-top:16px;max-width:80ch}
 </style>
 
+
+</head>
+<body>
 <div class="wrap">
   <header class="top">
     <div class="upd" aria-live="polite"><b>Updated Sundays at midnight</b><span id="lastupd">Last updated: …</span></div>
@@ -328,9 +342,11 @@ function render(DATA){
     }).join('');
     return `<section class="day" id="d${d.day}">
       <div class="dayhead"><div class="date"><b>${WD(d.date,"long")}</b> · ${MD(d.date)}</div><h2>${esc(d.title)}</h2>
-        <div class="meta"><a class="btn kick" href="${KICK(d.vod)}" target="_blank" rel="noopener">Full VOD · ${fmt(d.vodlen)}</a><span>${d.segs.length} topics</span></div></div>
+        <div class="meta"><a class="btn kick" href="${KICK(d.vod)}" target="_blank" rel="noopener">Full VOD · ${fmt(d.vodlen)}</a><span>${d.segs.length} topics</span></div>
+        <button type="button" class="dtog" data-dtog="${d.day}" aria-expanded="true" aria-controls="tl"><span class="ar" aria-hidden="true">▸</span> <span class="lab">Hide topics</span></button></div>
     </section>${segs}`;
   }).join('') + `<div class="end"><span>End of week</span></div>`;
+  OPEN = new Set([DATA.days[0].day]); applyCollapse();
   pack();
   document.querySelectorAll('.tl img').forEach(i=>i.addEventListener('load', ()=>{ clearTimeout(pack.t); pack.t=setTimeout(pack,60); }, {once:true}));
   io.disconnect(); document.querySelectorAll('.day').forEach(d=>io.observe(d));
@@ -342,6 +358,7 @@ function pack(){
   let L = 0, R = 0, prev = -1e9, flip = 0;
   for (const el of tl.children){
     if (el.classList.contains('seg')){
+      if (el.classList.contains('hid')) continue;
       el.classList.remove('L','R');
       let side;
       if (!wide) side = 'R';
@@ -354,9 +371,9 @@ function pack(){
       const bottom = top + el.offsetHeight + GAP;
       if (wide) { if (side==='L') L = bottom; else R = bottom; } else { L = R = bottom; }
     } else if (el.classList.contains('day') || el.classList.contains('end')) {
-      const top = Math.max(L, R) + (el.classList.contains('day') ? 26 : 10);
+      const top = Math.max(L, R) + (el.classList.contains('day') ? (el.classList.contains('shut') && L > 0 ? 14 : 26) : 10);
       el.style.top = top + 'px'; prev = top;
-      L = R = top + el.offsetHeight + (el.classList.contains('day') ? 30 : 0);
+      L = R = top + el.offsetHeight + (el.classList.contains('day') ? (el.classList.contains('shut') ? 0 : 30) : 0);
     }
   }
   tl.style.height = Math.max(L,R) + 'px';
@@ -372,7 +389,7 @@ function drawLinks(){
   const wide = innerWidth > 820, spine = wide ? tl.offsetWidth/2 : 8;
   const keys = Object.keys(HUE); const out = [];
   tl.querySelectorAll('.seg.rep').forEach(el=>{
-    const f = $(el.dataset.first); if (!f) return;
+    const f = $(el.dataset.first); if (!f || el.classList.contains('hid') || f.classList.contains('hid')) return;
     const g = el.dataset.g, k = keys.indexOf(g);
     const lane = wide ? spine + (k%2 ? 1 : -1) * (14 + Math.floor(k/2) * 8) : spine + 5 + k * 1.7;
     const yr = el.offsetTop + 21, yf = f.offsetTop + 21;
@@ -383,7 +400,24 @@ function drawLinks(){
 document.addEventListener('mouseover', e=>{ const s=e.target.closest('.seg'); document.querySelectorAll('svg.links path.hot').forEach(p=>p.classList.remove('hot')); if(!s) return;
   const sel = s.classList.contains('rep') ? `path[data-from="${s.id}"]` : `path[data-g="${s.dataset.g}"]`;
   document.querySelectorAll('svg.links '+sel).forEach(p=>p.classList.add('hot')); });
-addEventListener('resize', ()=>{ clearTimeout(pack.t); pack.t = setTimeout(pack, 80); });
+// on narrow screens each day folds up like the tag drawer's months: first day open, the rest collapsed
+let OPEN = new Set();
+const narrow = () => innerWidth <= 820;
+function applyCollapse(){
+  const n = narrow();
+  document.querySelectorAll('#tl > .seg').forEach(el=>{ const d = +(el.id.match(/^d(\d+)/)||[])[1]; el.classList.toggle('hid', n && !OPEN.has(d)); });
+  document.querySelectorAll('.dtog').forEach(b=>{ const o = OPEN.has(+b.dataset.dtog); b.setAttribute('aria-expanded', o); b.querySelector('.lab').textContent = o ? 'Hide topics' : 'Show topics'; b.closest('.day').classList.toggle('shut', n && !o); });
+}
+function reveal(el){ const d = el && +((el.id||'').match(/^d(\d+)/)||[])[1]; if (d && narrow() && !OPEN.has(d)) { OPEN.add(d); applyCollapse(); pack(); } }
+const _siv = Element.prototype.scrollIntoView;
+Element.prototype.scrollIntoView = function(o){ reveal(this); return _siv.call(this, o); };
+document.addEventListener('click', e=>{
+  const t = e.target.closest('[data-dtog]'); if (t){ e.stopPropagation(); const d=+t.dataset.dtog; OPEN.has(d) ? OPEN.delete(d) : OPEN.add(d); applyCollapse(); pack(); return; }
+  const a = e.target.closest('a[href^="#d"]'); if (a) reveal($(a.getAttribute('href').slice(1)));
+}, true);
+addEventListener('hashchange', ()=>{ const h = location.hash.slice(1); if (/^d\d+/.test(h)) { const el=$(h); if (el){ reveal(el); _siv.call(el,{block:'start'}); } } });
+let lastNarrow = narrow();
+addEventListener('resize', ()=>{ clearTimeout(pack.t); pack.t = setTimeout(()=>{ if (narrow()!==lastNarrow){ lastNarrow=narrow(); applyCollapse(); } pack(); }, 80); });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(()=>pack());
 
 let following = null, cursor = -1;
@@ -488,3 +522,6 @@ addEventListener('hashchange', ()=>{ const h=location.hash.slice(1); if (/^s-[a-
   else loadWeek(WEEKS[0].id, h || null);
 })();
 </script>
+
+</body>
+</html>
