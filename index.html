@@ -532,7 +532,7 @@ async function loadWeek(id, scrollTo){
   const i = WEEKS.findIndex(w=>w.id===id); if (i<0) return;
   WEEK = WEEKS[i]; $('week').value = id; $('wrange').textContent = WEEK.range;
   $('wprev').disabled = i===WEEKS.length-1; $('wnext').disabled = i===0;
-  if (!cache[id]) { $('tl').innerHTML = '<div class="loading">Loading week…</div>'; cache[id] = await fetch(`weeks/${id}.json`).then(r=>r.json()); cache[id].id = id; }
+  if (!cache[id]) { $('tl').innerHTML = '<div class="loading">Loading week…</div>'; cache[id] = await fetch(`weeks/${id}.json`, {cache:'no-cache'}).then(r=>r.json()); cache[id].id = id; }
   render(cache[id]);
   if (scrollTo) { const el = $(scrollTo); if (el) setTimeout(()=>el.scrollIntoView({block:'start'}),60); }
 }
@@ -544,11 +544,11 @@ addEventListener('hashchange', ()=>{ const h=location.hash.slice(1); if (/^s-[a-
 
 (async()=>{
   try {
-    IDX = await fetch('weeks/index.json').then(r=>r.json()); WEEKS = IDX.weeks;   // newest first
+    IDX = await fetch('weeks/index.json', {cache:'no-cache'}).then(r=>r.json()); WEEKS = IDX.weeks;   // newest first
   } catch(e) { $('tl').innerHTML = '<div class="loading">Couldn\'t load the week list. Reload the page to try again.</div>'; return; }
   $('week').innerHTML = WEEKS.map(w=>`<option value="${w.id}">${esc(w.label)}</option>`).join('');
   if (IDX.updated) $('lastupd').textContent = 'Last updated: ' + new Date(IDX.updated).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric',timeZone:'America/Phoenix'});
-  try { SUBJ = await fetch('weeks/subjects.json').then(r=>r.ok?r.json():{}); } catch(e) { SUBJ = {}; }
+  try { SUBJ = await fetch('weeks/subjects.json', {cache:'no-cache'}).then(r=>r.ok?r.json():{}); } catch(e) { SUBJ = {}; }
   subjIndex();
   const h = location.hash.slice(1);
   if (/^s-[a-z0-9-]+$/.test(h) && SUBJ[h.slice(2)]) { await loadWeek(WEEKS[0].id); openSubj(h.slice(2)); return; }
