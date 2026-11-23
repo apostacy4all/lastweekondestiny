@@ -1,6 +1,11 @@
 {
- "updated": "2026-11-16T07:49-07:00",
+ "updated": "2026-11-23T00:19-07:00",
  "weeks": [
+  {
+   "id": "2026-11-16",
+   "label": "Week of Nov 16\u201322, 2026",
+   "range": "7 streams \u00b7 87 topics"
+  },
   {
    "id": "2026-11-09",
    "label": "Week of Nov 9\u201315, 2026",
